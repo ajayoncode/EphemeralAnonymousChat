@@ -78,7 +78,7 @@
       const v = el("#private-input-" + targetId).value.trim();
       if (!v) return;
       try {
-        privateWss[targetId].send(JSON.stringify({ type: "message", text: v }));
+        privateWss[targetId].send(JSON.stringify({ type: "message", text: v , to: targetId  }));
         const body = el("#private-body-" + targetId);
         const div = document.createElement("div"); div.className = "msg"; div.innerHTML = `<div class="small">you</div><div>${sanitize(v)}</div>`; body.appendChild(div); body.scrollTop = body.scrollHeight;
         el("#private-input-" + targetId).value = "";

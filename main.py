@@ -61,6 +61,10 @@ async def unregister_connection(device_id: str):
     LAST_MSG_TS.pop(device_id, None)
 from urllib.parse import parse_qs
 
+CONNECTIONS = {}  # { device_id: { "ws": ws, "last_seen": ts, "busy": False } }
+PRIVATE_SESSIONS = {}  # { (from_id, target_id): ws }
+
+
 # Public WebSocket: broadcast
 @app.websocket("/ws/public")
 async def ws_public(ws: WebSocket):
@@ -106,7 +110,6 @@ async def ws_public(ws: WebSocket):
 async def ws_private(ws: WebSocket, target_id: str):
     await ws.accept()
 
-    # ✅ Proper query string parsing
     params = {}
     if ws.scope.get("query_string"):
         raw_qs = ws.scope["query_string"].decode()
@@ -114,46 +117,59 @@ async def ws_private(ws: WebSocket, target_id: str):
 
     from_id = params.get("from") or str(uuid.uuid4())[:8]
 
+    # register base connection
     await register_connection(from_id, ws)
-    CONNECTIONS.get(from_id, {})["busy"] = True
+
+    # register private session
+    PRIVATE_SESSIONS[(from_id, target_id)] = ws
 
     try:
         # notify target if online
         target_conn = CONNECTIONS.get(target_id)
         if target_conn:
-            await _send_safe(target_conn["ws"], {"type": "private_request", "from": from_id})
+            await _send_safe(target_conn["ws"], {
+                "type": "private_request", "from": from_id
+            })
 
         while True:
             raw = await ws.receive_json()
-            CONNECTIONS.get(from_id, {})["last_seen"] = time.time()
-            msg_type = raw.get("type","message")
+            CONNECTIONS[from_id]["last_seen"] = time.time()
+            msg_type = raw.get("type", "message")
+
             if msg_type == "ping":
-                await _send_safe(ws, {"type":"pong", "ts": time.time()})
+                await _send_safe(ws, {"type": "pong", "ts": time.time()})
                 continue
+
             now = time.time()
             last = LAST_MSG_TS.get(from_id, 0)
             if now - last < RATE_LIMIT_SEC:
-                await _send_safe(ws, {"type":"error","message":"You're sending messages too quickly."})
+                await _send_safe(ws, {"type": "error","message":"You're sending too quickly."})
                 continue
             LAST_MSG_TS[from_id] = now
+
             if msg_type == "message":
-                text = escape(str(raw.get("text","")) )[:2000]
-                payload = {"type":"private_message","from":from_id,"to":target_id,"text":text,"ts": now}
-                # send to target if connected and accept private session
-                t = CONNECTIONS.get(target_id)
+                text = escape(str(raw.get("text", "")))[:2000]
+                payload = {
+                    "type": "private_message",
+                    "from": from_id,
+                    "to": target_id,
+                    "text": text,
+                    "ts": now
+                }
+
+                # check if target has a private session
+                t = PRIVATE_SESSIONS.get((target_id, from_id))
                 if t:
-                    await _send_safe(t["ws"], payload)
+                    await _send_safe(t, payload)
                 else:
-                    await _send_safe(ws, {"type":"error","message":"Target not online."})
+                    await _send_safe(ws, {"type": "error", "message": "Target not in private chat."})
+
     except WebSocketDisconnect:
         pass
     finally:
-        CONNECTIONS.get(from_id, {})["busy"] = False
-        # notify target
-        t = CONNECTIONS.get(target_id)
-        if t:
-            await _send_safe(t["ws"], {"type":"info","message":f"{from_id} disconnected from private chat."})
+        PRIVATE_SESSIONS.pop((from_id, target_id), None)
         await unregister_connection(from_id)
+
 
 # broadcast helper
 async def broadcast(payload: dict):
