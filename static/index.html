@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Ephemeral Anonymous Chat — MVP</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; margin:0; background:#f7fafc; color:#111}
+    header{background:#111827;color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+    .container{display:flex;height:calc(100vh - 56px)}
+    .sidebar{width:220px;background:#fff;border-right:1px solid #e5e7eb;padding:12px;box-sizing:border-box}
+    .main{flex:1;display:flex;flex-direction:column}
+    .messages{flex:1;padding:12px;overflow:auto;background:linear-gradient(#fff,#f8fafc)}
+    .msg{padding:8px;border-radius:6px;margin-bottom:8px;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,0.04)}
+    .footer{padding:8px;border-top:1px solid #e5e7eb;display:flex;gap:8px}
+    button{padding:8px 10px;border-radius:6px;border:1px solid #d1d5db;background:white;cursor:pointer}
+    .user{padding:6px;border-radius:4px;margin-bottom:6px;background:#f3f4f6;cursor:pointer}
+    .device-id{font-weight:600}
+    .small{font-size:12px;color:#6b7280}
+    .private-chat{position:fixed;right:12px;bottom:12px;width:320px;background:white;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);overflow:hidden}
+    .private-head{padding:8px;border-bottom:1px solid #eef2f7;background:#fafafa}
+    .private-body{max-height:200px;overflow:auto;padding:8px}
+  </style>
+</head>
+<body>
+  <header>
+    <div>Ephemeral Anonymous Chat</div>
+    <div>Device: <span id="deviceId" class="device-id">...</span></div>
+  </header>
+  <div class="container">
+    <aside class="sidebar">
+      <div class="small">Online Users</div>
+      <div id="onlineList" style="margin-top:8px"></div>
+      <div style="margin-top:12px">
+        <button id="refreshBtn">Refresh List</button>
+        <button id="clearBtn">Clear</button>
+      </div>
+      <hr/>
+      <div class="small">Notes</div>
+      <ul class="small">
+        <li>Chats are ephemeral — reload clears sessions.</li>
+        <li>No login; device-bound ID stored locally.</li>
+        <li>Basic rate limiting and XSS protection.</li>
+      </ul>
+    </aside>
+    <section class="main">
+      <div class="messages" id="messages"></div>
+      <div class="footer">
+        <input id="publicInput" placeholder="Say something public..." style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:6px" maxlength="2000"/>
+        <button id="sendPublic">Send</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="privateChats"></div>
+
+  <script src="static/app.js"></script>
+</body>
+</html>
